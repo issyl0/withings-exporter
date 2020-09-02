@@ -55,7 +55,7 @@ func main() {
 		_, accessToken = oauthFlow(withingsAPIBaseURL, clientID, clientSecret, scopes)
 	}
 
-	fmt.Println(getMeasures(withingsAPIBaseURL, accessToken))
+	fmt.Println(getWeightMeasurements(withingsAPIBaseURL, accessToken))
 }
 
 func oauthFlow(withingsAPIBaseURL string, clientID string, clientSecret string, scopes string) (string, string) {
@@ -89,8 +89,9 @@ func oauthFlow(withingsAPIBaseURL string, clientID string, clientSecret string, 
 	return authCode, accessToken
 }
 
-func getMeasures(withingsAPIBaseURL string, accessToken string) (int64, float64) {
-	url := fmt.Sprintf("%s/measure?action=getmeas&meastypes=1&category=1&lastupdate=integer", withingsAPIBaseURL)
+func getWeightMeasurements(withingsAPIBaseURL string, accessToken string) (int64, float64) {
+	var weightMeasurementAPITypes = 1
+	url := fmt.Sprintf("%s/measure?action=getmeas&meastypes=%d&category=1&lastupdate=integer", withingsAPIBaseURL, weightMeasurementAPITypes)
 	method := "POST"
 
 	client := &http.Client{}
