@@ -22,6 +22,22 @@ type RequestToken struct {
 	} `json:"body"`
 }
 
+// Measures response from Withings API
+// https://developer.withings.com/oauth2/#operation/measure-getmeas
+type Measures struct {
+	Status int `json:"status"`
+	Body   struct {
+		MeasureGroups []struct {
+			Date     int64 `json:"date"`
+			Created  int64 `json:"created"`
+			Measures []struct {
+				Value float64 `json:"value"`
+				Type  int     `json:"type"`
+			}
+		} `json:"measuregrps"`
+	} `json:"body"`
+}
+
 func main() {
 	const withingsAPIBaseURL = "https://wbsapi.withings.net"
 
@@ -38,6 +54,8 @@ func main() {
 		const scopes = "user.info,user.metrics"
 		_, accessToken = oauthFlow(withingsAPIBaseURL, clientID, clientSecret, scopes)
 	}
+
+	fmt.Println(getMeasures(withingsAPIBaseURL, accessToken))
 }
 
 func oauthFlow(withingsAPIBaseURL string, clientID string, clientSecret string, scopes string) (string, string) {
@@ -69,4 +87,31 @@ func oauthFlow(withingsAPIBaseURL string, clientID string, clientSecret string, 
 	accessToken := parsedRequestToken.Body.AccessToken
 	fmt.Printf("To avoid reauthenticating every time, run `export WITHINGS_API_ACCESS_TOKEN=%s`\n", accessToken)
 	return authCode, accessToken
+}
+
+func getMeasures(withingsAPIBaseURL string, accessToken string) (int64, float64) {
+	url := fmt.Sprintf("%s/measure?action=getmeas&meastypes=1&category=1&lastupdate=integer", withingsAPIBaseURL)
+	method := "POST"
+
+	client := &http.Client{}
+	req, err := http.NewRequest(method, url, nil)
+	if err != nil {
+		fmt.Println(err)
+	}
+	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", accessToken))
+
+	res, err := client.Do(req)
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	defer res.Body.Close()
+	body, err := ioutil.ReadAll(res.Body)
+
+	fmt.Println(string(body))
+
+	parsedMeasures := Measures{}
+	json.Unmarshal(body, &parsedMeasures)
+
+	return parsedMeasures.Body.MeasureGroups[0].Created, parsedMeasures.Body.MeasureGroups[0].Measures[0].Value / 1000
 }
