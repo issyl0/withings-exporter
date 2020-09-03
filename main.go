@@ -73,6 +73,7 @@ func main() {
 	log.Printf("Setting withings_current_weight_metric to %fkg.", currentWeight)
 
 	http.Handle("/metrics", promhttp.Handler())
+	log.Printf("Serving metrics on http://localhost:8080/metrics. Configure your Prometheus to scrape accordingly.")
 	log.Fatal(http.ListenAndServe(":8080", nil))
 }
 
