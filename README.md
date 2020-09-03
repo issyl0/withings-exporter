@@ -10,7 +10,7 @@ I have a Withings Body+ smart scale. And I wanted to build my first Prometheus e
 ## Future plans
 
 - Better authentication - refresh tokens once the original access token expires after 3 hours?
-- Some other metrics that the [Withings Measures API](https://developer.withings.com/oauth2/#section/Models/Measures) has that the Body+ scales can provide.
+- Some other metrics that the [Withings Measures API](https://developer.withings.com/oauth2/#operation/measure-getmeas) has that the Body+ scales can provide.
 - Support stones and/or pounds for those who are more used to that than kg, or to correctly parse non-kg API responses.
 
 ## Running the exporter
