@@ -4,8 +4,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"net/http"
 	"os"
+
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 // RequestToken response from Withings API
@@ -55,7 +59,22 @@ func main() {
 		_, accessToken = oauthFlow(withingsAPIBaseURL, clientID, clientSecret, scopes)
 	}
 
-	fmt.Println(getWeightMeasurements(withingsAPIBaseURL, accessToken))
+	currentWeightMetric := prometheus.NewGauge(
+		prometheus.GaugeOpts{
+			Name: "withings_current_weight",
+			Help: "Shows the latest weight measurement (assumed in kg)",
+		},
+	)
+
+	currentWeight := getWeightMeasurements(withingsAPIBaseURL, accessToken)
+
+	prometheus.MustRegister(currentWeightMetric)
+	currentWeightMetric.Set(currentWeight)
+	log.Printf("Setting withings_current_weight_metric to %fkg.", currentWeight)
+
+	http.Handle("/metrics", promhttp.Handler())
+	log.Printf("Serving metrics on http://localhost:8080/metrics. Configure your Prometheus to scrape accordingly.")
+	log.Fatal(http.ListenAndServe(":8080", nil))
 }
 
 func oauthFlow(withingsAPIBaseURL string, clientID string, clientSecret string, scopes string) (string, string) {
@@ -89,7 +108,7 @@ func oauthFlow(withingsAPIBaseURL string, clientID string, clientSecret string, 
 	return authCode, accessToken
 }
 
-func getWeightMeasurements(withingsAPIBaseURL string, accessToken string) (int64, float64) {
+func getWeightMeasurements(withingsAPIBaseURL string, accessToken string) float64 {
 	var weightMeasurementAPITypes = 1
 	url := fmt.Sprintf("%s/measure?action=getmeas&meastypes=%d&category=1&lastupdate=integer", withingsAPIBaseURL, weightMeasurementAPITypes)
 	method := "POST"
@@ -109,10 +128,8 @@ func getWeightMeasurements(withingsAPIBaseURL string, accessToken string) (int64
 	defer res.Body.Close()
 	body, err := ioutil.ReadAll(res.Body)
 
-	fmt.Println(string(body))
-
 	parsedMeasures := Measures{}
 	json.Unmarshal(body, &parsedMeasures)
 
-	return parsedMeasures.Body.MeasureGroups[0].Created, parsedMeasures.Body.MeasureGroups[0].Measures[0].Value / 1000
+	return parsedMeasures.Body.MeasureGroups[0].Measures[0].Value / 1000
 }
