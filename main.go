@@ -25,13 +25,7 @@ func main() {
 		accessToken, refreshToken, expiryTime = oauthFlow(withingsAPIBaseURL, clientID, clientSecret, scopes, "", false)
 	}
 
-	currentWeightMetric := prometheus.NewGauge(
-		prometheus.GaugeOpts{
-			Name: "withings_current_weight",
-			Help: "Shows the latest weight measurement (assumed in kg)",
-		},
-	)
-	prometheus.MustRegister(currentWeightMetric)
+	registerMetrics()
 
 	ticker := time.NewTicker(300 * time.Second)
 	go func() {
