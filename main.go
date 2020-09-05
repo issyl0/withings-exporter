@@ -55,6 +55,14 @@ func main() {
 		accessToken, refreshToken, expiryTime = oauthFlow(withingsAPIBaseURL, clientID, clientSecret, scopes, "", false)
 	}
 
+	currentWeightMetric := prometheus.NewGauge(
+		prometheus.GaugeOpts{
+			Name: "withings_current_weight",
+			Help: "Shows the latest weight measurement (assumed in kg)",
+		},
+	)
+	prometheus.MustRegister(currentWeightMetric)
+
 	ticker := time.NewTicker(300 * time.Second)
 	go func() {
 		for {
@@ -64,21 +72,15 @@ func main() {
 					log.Println("Refreshing credentials...")
 					accessToken, refreshToken, expiryTime = oauthFlow(withingsAPIBaseURL, clientID, clientSecret, scopes, refreshToken, true)
 				}
+
+				log.Println("Updating data...")
+				updateMetrics(currentWeightMetric, getWeightMeasurements(withingsAPIBaseURL, accessToken))
 			}
 		}
 	}()
 
-	currentWeight := getWeightMeasurements(withingsAPIBaseURL, accessToken)
-	currentWeightMetric := prometheus.NewGauge(
-		prometheus.GaugeOpts{
-			Name: "withings_current_weight",
-			Help: "Shows the latest weight measurement (assumed in kg)",
-		},
-	)
-
-	prometheus.MustRegister(currentWeightMetric)
-	currentWeightMetric.Set(currentWeight)
-	log.Printf("Setting withings_current_weight_metric to %fkg.\n", currentWeight)
+	log.Println("Getting initial values...")
+	updateMetrics(currentWeightMetric, getWeightMeasurements(withingsAPIBaseURL, accessToken))
 
 	http.Handle("/metrics", promhttp.Handler())
 	log.Println("Serving metrics on http://localhost:8080/metrics. Configure your Prometheus to scrape accordingly.")
@@ -161,4 +163,9 @@ func getWeightMeasurements(withingsAPIBaseURL string, accessToken string) float6
 	json.Unmarshal(body, &parsedMeasures)
 
 	return parsedMeasures.Body.MeasureGroups[0].Measures[0].Value / 1000
+}
+
+func updateMetrics(currentWeightMetric prometheus.Gauge, currentWeight float64) {
+	currentWeightMetric.Set(currentWeight)
+	log.Printf("Setting withings_current_weight metric to %f kg.\n", currentWeight)
 }
