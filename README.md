@@ -4,13 +4,12 @@ I have a Withings Body+ smart scale. And I wanted to build my first Prometheus e
 
 ## What this does
 
-- Outputs a gauge metric for `withings_current_weight`, taking the most recent recorded weight and naively assuming it's in kilograms.
+- Outputs a gauge metric for `withings_current_weight`, taking the most recent recorded weight. The API returns the weight in kilograms.
 - Outputs all of the usual Go Prometheus client metrics.
 
 ## Future plans
 
 - Some other metrics that the [Withings Measures API](https://developer.withings.com/oauth2/#operation/measure-getmeas) has that the Body+ scales can provide.
-- Support stones and/or pounds for those who are more used to that than kg, or to correctly parse non-kg API responses.
 
 ## Running the exporter
 
