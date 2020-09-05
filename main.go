@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -21,7 +22,7 @@ type RequestToken struct {
 		AccessToken  string `json:"access_token"`
 		RefreshToken string `json:"refresh_token"`
 		Scope        string `json:"scope"`
-		ExpiresIn    string `json:"expires_in"`
+		ExpiresIn    int64  `json:"expires_in"`
 		TokenType    string `json:"token_type"`
 	} `json:"body"`
 }
@@ -44,21 +45,30 @@ type Measures struct {
 
 func main() {
 	const withingsAPIBaseURL = "https://wbsapi.withings.net"
+	const scopes = "user.info,user.metrics"
+	var accessToken, refreshToken string
+	var expiryTime time.Time
 
-	accessToken := os.Getenv("WITHINGS_API_ACCESS_TOKEN")
+	clientID, clientSecret := checkForAPIClientCredentials()
+
 	if accessToken == "" {
-		clientID := os.Getenv("WITHINGS_APP_CLIENT_ID")
-		clientSecret := os.Getenv("WITHINGS_APP_CLIENT_SECRET")
-
-		if clientID == "" || clientSecret == "" {
-			fmt.Println("Set your Withings API application up with `WITHINGS_APP_CLIENT_ID` and `WITHINGS_APP_CLIENT_SECRET` envvars.")
-			return
-		}
-
-		const scopes = "user.info,user.metrics"
-		_, accessToken = oauthFlow(withingsAPIBaseURL, clientID, clientSecret, scopes)
+		accessToken, refreshToken, expiryTime = oauthFlow(withingsAPIBaseURL, clientID, clientSecret, scopes, "", false)
 	}
 
+	ticker := time.NewTicker(300 * time.Second)
+	go func() {
+		for {
+			select {
+			case <-ticker.C:
+				if time.Now().After(expiryTime) {
+					log.Println("Refreshing credentials...")
+					accessToken, refreshToken, expiryTime = oauthFlow(withingsAPIBaseURL, clientID, clientSecret, scopes, refreshToken, true)
+				}
+			}
+		}
+	}()
+
+	currentWeight := getWeightMeasurements(withingsAPIBaseURL, accessToken)
 	currentWeightMetric := prometheus.NewGauge(
 		prometheus.GaugeOpts{
 			Name: "withings_current_weight",
@@ -66,28 +76,43 @@ func main() {
 		},
 	)
 
-	currentWeight := getWeightMeasurements(withingsAPIBaseURL, accessToken)
-
 	prometheus.MustRegister(currentWeightMetric)
 	currentWeightMetric.Set(currentWeight)
-	log.Printf("Setting withings_current_weight_metric to %fkg.", currentWeight)
+	log.Printf("Setting withings_current_weight_metric to %fkg.\n", currentWeight)
 
 	http.Handle("/metrics", promhttp.Handler())
-	log.Printf("Serving metrics on http://localhost:8080/metrics. Configure your Prometheus to scrape accordingly.")
+	log.Println("Serving metrics on http://localhost:8080/metrics. Configure your Prometheus to scrape accordingly.")
 	log.Fatal(http.ListenAndServe(":8080", nil))
 }
 
-func oauthFlow(withingsAPIBaseURL string, clientID string, clientSecret string, scopes string) (string, string) {
-	authCode := ""
-	fmt.Printf("Go to https://account.withings.com/oauth2_user/authorize2?response_type=code&client_id=%s&scope=%s&state=issyl0-withings&redirect_uri=http://localhost\n", clientID, scopes)
-	fmt.Println("Enter the value of `code` from the returned query string:")
-	fmt.Scanln(&authCode)
+func checkForAPIClientCredentials() (string, string) {
+	clientID := os.Getenv("WITHINGS_APP_CLIENT_ID")
+	clientSecret := os.Getenv("WITHINGS_APP_CLIENT_SECRET")
 
-	url := fmt.Sprintf("%s/v2/oauth2?action=requesttoken&grant_type=authorization_code&client_id=%s&client_secret=%s&code=%s&redirect_uri=http://localhost", withingsAPIBaseURL, clientID, clientSecret, authCode)
-	method := "POST"
+	if clientID == "" || clientSecret == "" {
+		fmt.Println("Set your Withings API application up with `WITHINGS_APP_CLIENT_ID` and `WITHINGS_APP_CLIENT_SECRET` envvars.")
+		os.Exit(1)
+	}
+
+	return clientID, clientSecret
+}
+
+func oauthFlow(withingsAPIBaseURL string, clientID string, clientSecret string, scopes string, refreshToken string, isRefresh bool) (string, string, time.Time) {
+	var url string
+
+	if !isRefresh {
+		authCode := ""
+		fmt.Printf("Go to https://account.withings.com/oauth2_user/authorize2?response_type=code&client_id=%s&scope=%s&state=issyl0-withings&redirect_uri=http://localhost\n", clientID, scopes)
+		fmt.Println("Enter the value of `code` from the returned query string:")
+		fmt.Scanln(&authCode)
+
+		url = fmt.Sprintf("%s/v2/oauth2?action=requesttoken&grant_type=authorization_code&client_id=%s&client_secret=%s&code=%s&redirect_uri=http://localhost", withingsAPIBaseURL, clientID, clientSecret, authCode)
+	} else {
+		url = fmt.Sprintf("%s/v2/oauth2?action=requesttoken&grant_type=refresh_token&client_id=%s&client_secret=%s&refresh_token=%s&redirect_uri=http://localhost", withingsAPIBaseURL, clientID, clientSecret, refreshToken)
+	}
 
 	client := &http.Client{}
-	req, err := http.NewRequest(method, url, nil)
+	req, err := http.NewRequest("POST", url, nil)
 	if err != nil {
 		fmt.Println(err)
 	}
@@ -103,9 +128,13 @@ func oauthFlow(withingsAPIBaseURL string, clientID string, clientSecret string, 
 	parsedRequestToken := RequestToken{}
 	json.Unmarshal(body, &parsedRequestToken)
 
-	accessToken := parsedRequestToken.Body.AccessToken
-	fmt.Printf("To avoid reauthenticating every time, run `export WITHINGS_API_ACCESS_TOKEN=%s`\n", accessToken)
-	return authCode, accessToken
+	expiryTime := tokenExpiryTime(time.Now(), parsedRequestToken.Body.ExpiresIn)
+
+	return parsedRequestToken.Body.AccessToken, parsedRequestToken.Body.RefreshToken, expiryTime
+}
+
+func tokenExpiryTime(issuedTime time.Time, expiresIn int64) time.Time {
+	return issuedTime.Add(time.Second * time.Duration(expiresIn))
 }
 
 func getWeightMeasurements(withingsAPIBaseURL string, accessToken string) float64 {

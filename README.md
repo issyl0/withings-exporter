@@ -9,7 +9,6 @@ I have a Withings Body+ smart scale. And I wanted to build my first Prometheus e
 
 ## Future plans
 
-- Better authentication - refresh tokens once the original access token expires after 3 hours?
 - Some other metrics that the [Withings Measures API](https://developer.withings.com/oauth2/#operation/measure-getmeas) has that the Body+ scales can provide.
 - Support stones and/or pounds for those who are more used to that than kg, or to correctly parse non-kg API responses.
 
@@ -32,4 +31,4 @@ go build .
 - Create a [Withings account](https://account.withings.com/connectionuser/account_create). (You should already have one if you have a Withings product and use the HealthMate app!)
 - Make a [Withings API Application](https://account.withings.com/connectionuser/account_create).
 - Set `WITHINGS_APP_CLIENT_ID` and `WITHINGS_APP_CLIENT_SECRET` based off that application you created.
-- Follow the instructions when you run the exporter to authorize your account to connect with the application, and optionally set `WITHINGS_API_ACCESS_TOKEN`. Access tokens are valid for 3 hours.
+- Follow the instructions when you run the exporter to authorize your account to connect with the application. Access tokens are valid for three hours, then this auto-refreshes.
