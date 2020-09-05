@@ -27,7 +27,7 @@ func main() {
 
 	registerMetrics()
 
-	ticker := time.NewTicker(300 * time.Second)
+	ticker := time.NewTicker(1800 * time.Second)
 	go func() {
 		for {
 			select {

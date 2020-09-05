@@ -5,11 +5,14 @@ I have a Withings Body+ smart scale. And I wanted to build my first Prometheus e
 ## What this does
 
 - Outputs a gauge metric for `withings_current_weight`, taking the most recent recorded weight. The API returns the weight in kilograms.
+- OAuth token refresh.
+- Metrics refresh after 30 minutes.
 - Outputs all of the usual Go Prometheus client metrics.
 
 ## Future plans
 
 - Some other metrics that the [Withings Measures API](https://developer.withings.com/oauth2/#operation/measure-getmeas) has that the Body+ scales can provide.
+- The ability to pass flags for metric refresh rate and port to run on.
 
 ## Running the exporter
 
