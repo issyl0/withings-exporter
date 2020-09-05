@@ -15,14 +15,15 @@ I have a Withings Body+ smart scale. And I wanted to build my first Prometheus e
 
 ```sh
 cd /path/to/repo
-go run main.go
+go build .
+./withings-exporter
 ```
 
 or
 
 ```sh
-go build .
-./withings-exporter
+cd /path/to/repo
+go run main.go metrics.go types.go
 ```
 
 ## Authentication
