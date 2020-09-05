@@ -7,12 +7,13 @@ I have a Withings Body+ smart scale. And I wanted to build my first Prometheus e
 - Outputs a gauge metric for `withings_current_weight`, taking the most recent recorded weight. The API returns the weight in kilograms.
 - OAuth token refresh.
 - Metrics refresh after 30 minutes.
+- Customizable `--metrics-port` and `--scrape-interval`. See `--help` for
+  default values.
 - Outputs all of the usual Go Prometheus client metrics.
 
 ## Future plans
 
 - Some other metrics that the [Withings Measures API](https://developer.withings.com/oauth2/#operation/measure-getmeas) has that the Body+ scales can provide.
-- The ability to pass flags for metric refresh rate and port to run on.
 
 ## Running the exporter
 
@@ -27,6 +28,18 @@ or
 ```sh
 cd /path/to/repo
 go run main.go metrics.go types.go
+```
+
+`--help` output:
+
+```
+usage: withings-exporter [<flags>]
+
+Flags:
+  --help                  Show context-sensitive help (also try --help-long and
+                          --help-man).
+  --metrics-port=8080     The port to bind to for serving metrics
+  --scrape-interval=1800  Time in seconds between scrapes
 ```
 
 ## Authentication

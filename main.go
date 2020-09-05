@@ -9,6 +9,8 @@ import (
 	"os"
 	"time"
 
+	"gopkg.in/alecthomas/kingpin.v2"
+
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
@@ -19,6 +21,10 @@ func main() {
 	var accessToken, refreshToken string
 	var expiryTime time.Time
 
+	metricsPort := kingpin.Flag("metrics-port", "The port to bind to for serving metrics").Default("8080").OverrideDefaultFromEnvar("METRICS_PORT").Int()
+	metricsScrapeInterval := kingpin.Flag("scrape-interval", "Time in seconds between scrapes").Default("1800").OverrideDefaultFromEnvar("METRICS_SCRAPE_INTERVAL").Int64()
+	kingpin.Parse()
+
 	clientID, clientSecret := checkForAPIClientCredentials()
 
 	if accessToken == "" {
@@ -27,7 +33,7 @@ func main() {
 
 	registerMetrics()
 
-	ticker := time.NewTicker(1800 * time.Second)
+	ticker := time.NewTicker(time.Duration(*metricsScrapeInterval) * time.Second)
 	go func() {
 		for {
 			select {
@@ -47,8 +53,8 @@ func main() {
 	updateMetrics(currentWeightMetric, getWeightMeasurements(withingsAPIBaseURL, accessToken))
 
 	http.Handle("/metrics", promhttp.Handler())
-	log.Println("Serving metrics on http://localhost:8080/metrics. Configure your Prometheus to scrape accordingly.")
-	log.Fatal(http.ListenAndServe(":8080", nil))
+	log.Printf("Serving metrics on http://localhost:%d/metrics. Configure your Prometheus to scrape accordingly.", *metricsPort)
+	log.Fatal(http.ListenAndServe(fmt.Sprintf(":%d", *metricsPort), nil))
 }
 
 func checkForAPIClientCredentials() (string, string) {
