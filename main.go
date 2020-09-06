@@ -44,13 +44,19 @@ func main() {
 				}
 
 				log.Println("Updating data...")
-				updateMetrics(currentWeightMetric, getWeightMeasurements(withingsAPIBaseURL, accessToken))
+				updateMetrics(
+					currentWeightMetric, getMeasurements(withingsAPIBaseURL, accessToken, "weight"),
+					hydrationMetric, getMeasurements(withingsAPIBaseURL, accessToken, "hydration"),
+				)
 			}
 		}
 	}()
 
 	log.Println("Getting initial values...")
-	updateMetrics(currentWeightMetric, getWeightMeasurements(withingsAPIBaseURL, accessToken))
+	updateMetrics(
+		currentWeightMetric, getMeasurements(withingsAPIBaseURL, accessToken, "weight"),
+		hydrationMetric, getMeasurements(withingsAPIBaseURL, accessToken, "hydration"),
+	)
 
 	http.Handle("/metrics", promhttp.Handler())
 	log.Printf("Serving metrics on http://localhost:%d/metrics. Configure your Prometheus to scrape accordingly.", *metricsPort)
@@ -109,9 +115,16 @@ func tokenExpiryTime(issuedTime time.Time, expiresIn int64) time.Time {
 	return issuedTime.Add(time.Second * time.Duration(expiresIn))
 }
 
-func getWeightMeasurements(withingsAPIBaseURL string, accessToken string) float64 {
-	var weightMeasurementAPITypes = 1
-	url := fmt.Sprintf("%s/measure?action=getmeas&meastypes=%d&category=1&lastupdate=integer", withingsAPIBaseURL, weightMeasurementAPITypes)
+func getMeasurements(withingsAPIBaseURL string, accessToken string, measurementType string) float64 {
+	var measurementAPIType int
+	switch measurementType {
+	case "weight":
+		measurementAPIType = 1
+	case "hydration":
+		measurementAPIType = 77
+	}
+
+	url := fmt.Sprintf("%s/measure?action=getmeas&meastypes=%d&category=1&lastupdate=integer", withingsAPIBaseURL, measurementAPIType)
 	method := "POST"
 
 	client := &http.Client{}
@@ -132,10 +145,17 @@ func getWeightMeasurements(withingsAPIBaseURL string, accessToken string) float6
 	parsedMeasures := Measures{}
 	json.Unmarshal(body, &parsedMeasures)
 
-	return parsedMeasures.Body.MeasureGroups[0].Measures[0].Value / 1000
+	if measurementType == "weight" || measurementType == "hydration" {
+		return parsedMeasures.Body.MeasureGroups[0].Measures[0].Value / 1000
+	}
+
+	return 0.0
 }
 
-func updateMetrics(currentWeightMetric prometheus.Gauge, currentWeight float64) {
+func updateMetrics(currentWeightMetric prometheus.Gauge, currentWeight float64, hydrationMetric prometheus.Gauge, hydration float64) {
 	currentWeightMetric.Set(currentWeight)
 	log.Printf("Setting withings_current_weight metric to %f kg.\n", currentWeight)
+
+	hydrationMetric.Set(hydration)
+	log.Printf("Setting withings_current_hydration metric to %f/kg.\n", hydration)
 }
