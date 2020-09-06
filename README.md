@@ -5,6 +5,8 @@ I have a Withings Body+ smart scale. And I wanted to build my first Prometheus e
 ## What this does
 
 - Outputs a gauge metric for `withings_current_weight`, taking the most recent recorded weight. The API returns the weight in kilograms.
+- Outputs a gauge metric for `withings_current_hydration`, taking the most recent
+  recorded hydration level.
 - OAuth token refresh.
 - Metrics refresh after 30 minutes.
 - Customizable `--metrics-port` and `--scrape-interval`. See `--help` for
