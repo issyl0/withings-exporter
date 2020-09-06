@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strconv"
 	"time"
 
 	"gopkg.in/alecthomas/kingpin.v2"
@@ -153,9 +154,15 @@ func getMeasurements(withingsAPIBaseURL string, accessToken string, measurementT
 }
 
 func updateMetrics(currentWeightMetric prometheus.Gauge, currentWeight float64, hydrationMetric prometheus.Gauge, hydration float64) {
-	currentWeightMetric.Set(currentWeight)
-	log.Printf("Setting withings_current_weight metric to %f kg.\n", currentWeight)
+	currentWeight, err := strconv.ParseFloat(fmt.Sprintf("%.1f", currentWeight), 64)
+	hydration, err = strconv.ParseFloat(fmt.Sprintf("%.1f", hydration), 64)
 
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	log.Printf("Setting withings_current_weight metric to %.1f kg.\n", currentWeight)
+	currentWeightMetric.Set(currentWeight)
+	log.Printf("Setting withings_current_hydration metric to %.1f/kg.\n", hydration)
 	hydrationMetric.Set(hydration)
-	log.Printf("Setting withings_current_hydration metric to %f/kg.\n", hydration)
 }
