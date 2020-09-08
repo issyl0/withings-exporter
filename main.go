@@ -26,6 +26,7 @@ func main() {
 	clientSecret := kingpin.Flag("api-client-secret", "Withings API OAuth client secret (https://account.withings.com/partner/add_oauth2)").Default("").OverrideDefaultFromEnvar("WITHINGS_API_CLIENT_SECRET").String()
 	metricsPort := kingpin.Flag("metrics-port", "The port to bind to for serving metrics").Default("8080").OverrideDefaultFromEnvar("METRICS_PORT").Int()
 	metricsScrapeInterval := kingpin.Flag("scrape-interval", "Time in seconds between scrapes").Default("1800").OverrideDefaultFromEnvar("METRICS_SCRAPE_INTERVAL").Int64()
+	kingpin.Version("1.0.0")
 	kingpin.Parse()
 
 	if *clientID == "" || *clientSecret == "" {
