@@ -22,14 +22,19 @@ func main() {
 	var accessToken, refreshToken string
 	var expiryTime time.Time
 
+	clientID := kingpin.Flag("api-client-id", "Withings API OAuth client ID (https://account.withings.com/partner/add_oauth2)").Default("").OverrideDefaultFromEnvar("WITHINGS_API_CLIENT_ID").String()
+	clientSecret := kingpin.Flag("api-client-secret", "Withings API OAuth client secret (https://account.withings.com/partner/add_oauth2)").Default("").OverrideDefaultFromEnvar("WITHINGS_API_CLIENT_SECRET").String()
 	metricsPort := kingpin.Flag("metrics-port", "The port to bind to for serving metrics").Default("8080").OverrideDefaultFromEnvar("METRICS_PORT").Int()
 	metricsScrapeInterval := kingpin.Flag("scrape-interval", "Time in seconds between scrapes").Default("1800").OverrideDefaultFromEnvar("METRICS_SCRAPE_INTERVAL").Int64()
 	kingpin.Parse()
 
-	clientID, clientSecret := checkForAPIClientCredentials()
+	if *clientID == "" || *clientSecret == "" {
+		log.Println("Cannot talk to the Withings API. Pass `--api-client-id` and/or `--api-client-secret` flags with values. Or set `WITHINGS_API_CLIENT_ID` or `WITHINGS_API_CLIENT_SECRET` environment variables.")
+		os.Exit(1)
+	}
 
 	if accessToken == "" {
-		accessToken, refreshToken, expiryTime = oauthFlow(withingsAPIBaseURL, clientID, clientSecret, scopes, "", false)
+		accessToken, refreshToken, expiryTime = oauthFlow(withingsAPIBaseURL, *clientID, *clientSecret, scopes, "", false)
 	}
 
 	registerMetrics()
@@ -41,7 +46,7 @@ func main() {
 			case <-ticker.C:
 				if time.Now().After(expiryTime) {
 					log.Println("Refreshing credentials...")
-					accessToken, refreshToken, expiryTime = oauthFlow(withingsAPIBaseURL, clientID, clientSecret, scopes, refreshToken, true)
+					accessToken, refreshToken, expiryTime = oauthFlow(withingsAPIBaseURL, *clientID, *clientSecret, scopes, refreshToken, true)
 				}
 
 				log.Println("Updating data...")
@@ -62,18 +67,6 @@ func main() {
 	http.Handle("/metrics", promhttp.Handler())
 	log.Printf("Serving metrics on http://localhost:%d/metrics. Configure your Prometheus to scrape accordingly.", *metricsPort)
 	log.Fatal(http.ListenAndServe(fmt.Sprintf(":%d", *metricsPort), nil))
-}
-
-func checkForAPIClientCredentials() (string, string) {
-	clientID := os.Getenv("WITHINGS_APP_CLIENT_ID")
-	clientSecret := os.Getenv("WITHINGS_APP_CLIENT_SECRET")
-
-	if clientID == "" || clientSecret == "" {
-		fmt.Println("Set your Withings API application up with `WITHINGS_APP_CLIENT_ID` and `WITHINGS_APP_CLIENT_SECRET` envvars.")
-		os.Exit(1)
-	}
-
-	return clientID, clientSecret
 }
 
 func oauthFlow(withingsAPIBaseURL string, clientID string, clientSecret string, scopes string, refreshToken string, isRefresh bool) (string, string, time.Time) {
