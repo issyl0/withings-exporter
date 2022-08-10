@@ -47,6 +47,6 @@ Flags:
 ## Authentication
 
 - Create a [Withings account](https://account.withings.com/connectionuser/account_create). (You should already have one if you have a Withings product and use the HealthMate app!)
-- Make a [Withings API Application](https://account.withings.com/connectionuser/account_create).
+- Make a [Withings API Application](https://developer.withings.com/dashboard/). Use ``http://localhost`` as the callback URL.
 - Set `WITHINGS_APP_CLIENT_ID` and `WITHINGS_APP_CLIENT_SECRET` based off that application you created.
 - Follow the instructions when you run the exporter to authorize your account to connect with the application. Access tokens are valid for three hours, then this auto-refreshes.
